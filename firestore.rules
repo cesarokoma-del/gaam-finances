@@ -1,0 +1,118 @@
+rules_version = '2';
+
+// ══════════════════════════════════════════════════════
+// GAAM-Finances — règles de sécurité Firestore
+// Principes :
+//  1. Seuls les utilisateurs actifs lisent les données.
+//  2. Celui qui saisit une écriture ne peut pas la valider.
+//  3. Rien ne s'efface : une écriture validée s'annule avec un motif.
+// ══════════════════════════════════════════════════════
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function connecte() { return request.auth != null; }
+    function cheminProfil() { return /databases/$(database)/documents/utilisateurs/$(request.auth.uid); }
+    function actif() { return connecte() && exists(cheminProfil()) && get(cheminProfil()).data.statut == 'actif'; }
+    function aRole(roles) { return actif() && get(cheminProfil()).data.role in roles; }
+    function installe() { return exists(/databases/$(database)/documents/parametres/installation); }
+    function seuls(champs) { return request.resource.data.diff(resource.data).affectedKeys().hasOnly(champs); }
+
+    // ── Paramètres ────────────────────────────────────
+    match /parametres/{id} {
+      // « installation » est lisible par tous : l'écran d'entrée doit savoir
+      // si le premier compte existe déjà. Il ne contient aucun secret.
+      allow get: if id == 'installation' || actif();
+      allow list: if actif();
+      allow create: if (id == 'installation' && connecte() && request.resource.data.adminUid == request.auth.uid)
+                    || (id != 'installation' && aRole(['admin', 'tresorier']));
+      allow update: if id != 'installation' && aRole(['admin', 'tresorier']);
+      allow delete: if false;
+    }
+
+    // ── Utilisateurs ──────────────────────────────────
+    match /utilisateurs/{uid} {
+      allow get: if connecte() && (request.auth.uid == uid || actif());
+      allow list: if actif();
+      // Création : par l'administrateur, ou — une seule fois — par le tout
+      // premier compte, au moment de l'installation.
+      allow create: if aRole(['admin'])
+                    || (request.auth.uid == uid
+                        && !installe()
+                        && request.resource.data.role == 'admin'
+                        && getAfter(/databases/$(database)/documents/parametres/installation).data.adminUid == uid);
+      allow update: if aRole(['admin'])
+                    || (request.auth.uid == uid && seuls(['doitChangerMotDePasse', 'modifieLe']));
+      allow delete: if false;
+    }
+
+    // ── Activités ─────────────────────────────────────
+    match /activites/{id} {
+      allow read: if actif();
+      allow create, update: if aRole(['admin', 'tresorier']);
+      allow delete: if false;
+    }
+
+    // ── Compteurs (numérotation GAAM-AAAA-0001) ───────
+    match /compteurs/{annee} {
+      allow read: if actif();
+      allow create: if aRole(['admin', 'tresorier', 'saisie', 'validateur']) && request.resource.data.dernier == 1;
+      allow update: if aRole(['admin', 'tresorier', 'saisie', 'validateur'])
+                    && request.resource.data.dernier == resource.data.dernier + 1;
+      allow delete: if false;
+    }
+
+    // ── Écritures ─────────────────────────────────────
+    match /ecritures/{id} {
+      allow read: if actif();
+
+      allow create: if aRole(['admin', 'tresorier', 'saisie'])
+                    && request.resource.data.statut == 'en_attente'
+                    && request.resource.data.saisiPar.uid == request.auth.uid
+                    && request.resource.data.type in ['recette', 'depense']
+                    && request.resource.data.devise in ['USD', 'CDF', 'EUR']
+                    && request.resource.data.montant is number
+                    && request.resource.data.montant > 0;
+
+      allow update: if
+        // a) correction par l'auteur, avant validation
+        ( aRole(['admin', 'tresorier', 'saisie'])
+          && resource.data.statut in ['en_attente', 'rejetee']
+          && resource.data.saisiPar.uid == request.auth.uid
+          && request.resource.data.statut == 'en_attente'
+          && request.resource.data.saisiPar == resource.data.saisiPar
+          && request.resource.data.saisiLe == resource.data.saisiLe
+          && request.resource.data.numero == resource.data.numero
+          && request.resource.data.montant is number
+          && request.resource.data.montant > 0 )
+        // b) validation ou rejet, par une AUTRE personne
+        || ( aRole(['admin', 'tresorier', 'validateur'])
+          && resource.data.statut == 'en_attente'
+          && resource.data.saisiPar.uid != request.auth.uid
+          && request.resource.data.statut in ['validee', 'rejetee']
+          && request.resource.data.validePar.uid == request.auth.uid
+          && seuls(['statut', 'validePar', 'valideLe', 'motifRejet', 'numero']) )
+        // c) annulation d'une écriture validée, avec motif
+        || ( aRole(['admin', 'tresorier'])
+          && resource.data.statut == 'validee'
+          && request.resource.data.statut == 'annulee'
+          && request.resource.data.motifAnnulation is string
+          && request.resource.data.motifAnnulation.size() >= 5
+          && seuls(['statut', 'annulePar', 'annuleLe', 'motifAnnulation']) )
+        // d) ajout d'une pièce : seul le compteur de pièces change, et il augmente
+        || ( aRole(['admin', 'tresorier', 'saisie'])
+          && resource.data.statut != 'annulee'
+          && seuls(['nbPieces'])
+          && request.resource.data.nbPieces > resource.data.nbPieces );
+
+      allow delete: if false;
+
+      // Pièces justificatives : on en ajoute, on n'en retire jamais.
+      match /pieces/{pid} {
+        allow read: if actif();
+        allow create: if aRole(['admin', 'tresorier', 'saisie'])
+                      && request.resource.data.ajoutePar.uid == request.auth.uid;
+        allow update, delete: if false;
+      }
+    }
+  }
+}
