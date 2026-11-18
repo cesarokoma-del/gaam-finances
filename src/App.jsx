@@ -55,7 +55,7 @@ export default function App() {
 
   // ── Session ─────────────────────────────────────────
   useEffect(() => {
-    store.estInstalle().then(setInstalle).catch(() => setInstalle(true));
+    store.estInstalle().then(setInstalle).catch((e) => { setAvis("Base de données inaccessible (" + (e?.code || e?.message || "erreur") + "). Vérifiez les règles Firestore et les variables Netlify."); setInstalle(true); });
     return store.surSession((s) => setSession(s));
   }, []);
 
