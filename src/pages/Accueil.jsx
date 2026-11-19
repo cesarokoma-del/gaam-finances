@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { peutSaisir, peutValider, DEVISES } from "../lib/constantes";
+import { peutSaisir, peutValider, DEVISES, estInterne } from "../lib/constantes";
 import { fmtMontant, totaux, totalUSD, triRecent, sansPiece, fmtDate } from "../lib/outils";
 import { LigneEcriture, FicheEcriture, Modal } from "../composants";
 import { FormulaireEcriture } from "./Saisie";
@@ -9,7 +9,7 @@ export default function PageAccueil({ ctx }) {
   const [ouverte, setOuverte] = useState(null);
   const [aCorriger, setACorriger] = useState(null);
 
-  const validees = useMemo(() => ecritures.filter((e) => e.statut === "validee"), [ecritures]);
+  const validees = useMemo(() => ecritures.filter((e) => e.statut === "validee" && !estInterne(e)), [ecritures]);
   const t = useMemo(() => totaux(validees), [validees]);
   const aValider = ecritures.filter((e) => e.statut === "en_attente" && e.saisiPar?.uid !== profil.uid);
   const mesAttentes = ecritures.filter((e) => e.statut === "en_attente" && e.saisiPar?.uid === profil.uid);

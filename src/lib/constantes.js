@@ -51,6 +51,7 @@ export const DOMAINES = [
 
 // ── Catégories ────────────────────────────────────────
 export const CAT_RECETTES = [
+  { id: "r_ouverture",  label: "Solde d'ouverture (argent déjà détenu)" },
   { id: "r_cotisation", label: "Cotisations des membres" },
   { id: "r_don",        label: "Dons de particuliers" },
   { id: "r_diaspora",   label: "Dons de la diaspora" },
@@ -85,7 +86,12 @@ export const CAT_DEPENSES = [
   { id: "d_autre",      g: "Fonctionnement",label: "Autres dépenses" },
 ];
 
-const TOUTES = [...CAT_RECETTES, ...CAT_DEPENSES];
+// Mouvement entre deux lieux de détention (PayPal → caisse, caisse → banque…).
+// Ce n'est ni une recette ni une dépense : il compte dans la Caisse, pas dans les rapports.
+export const CAT_TRANSFERT = { id: "x_transfert", label: "Transfert interne" };
+export const estInterne = (e) => e.categorie === CAT_TRANSFERT.id;
+
+const TOUTES = [...CAT_RECETTES, ...CAT_DEPENSES, CAT_TRANSFERT];
 export const categorie = (id) => TOUTES.find((c) => c.id === id) || { id, label: id || "—" };
 
 // ── Modes de paiement ─────────────────────────────────
@@ -98,6 +104,17 @@ export const MODES = [
   { id: "nature",   label: "En nature" },
 ];
 export const mode = (id) => MODES.find((m) => m.id === id) || { id, label: id || "—" };
+
+// ── Lieux où l'argent est détenu (écran Caisse) ───────
+// Le lieu se déduit du mode de paiement de chaque écriture. Un transfert reçu
+// (Western Union…) est retiré en espèces : il entre donc dans la caisse.
+export const LIEUX = [
+  { id: "especes", label: "Caisse (espèces)" },
+  { id: "mobile",  label: "Mobile money" },
+  { id: "banque",  label: "Banque" },
+  { id: "paypal",  label: "PayPal" },
+];
+export const lieuDe = (e) => ({ especes: "especes", transfert: "especes", mobile: "mobile", banque: "banque", paypal: "paypal" }[e.mode] || null);
 
 // ── Types de pièces justificatives ────────────────────
 export const TYPES_PIECE = [

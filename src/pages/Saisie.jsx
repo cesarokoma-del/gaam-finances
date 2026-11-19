@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { store } from "../store";
-import { CAT_RECETTES, CAT_DEPENSES, DEVISES, MODES, GENERAL, SOURCES_RECONSTITUTION, peutSaisir } from "../lib/constantes";
+import { CAT_RECETTES, CAT_DEPENSES, CAT_TRANSFERT, LIEUX, DEVISES, MODES, GENERAL, SOURCES_RECONSTITUTION, peutSaisir } from "../lib/constantes";
 import { aujourdhui, messageErreur } from "../lib/outils";
 import { Champ, SelecteurPieces } from "../composants";
 
@@ -125,6 +125,7 @@ export function FormulaireEcriture({ ctx, initiale, activiteParDefaut, onFini })
         <Champ label="Catégorie" requis>
           <select value={f.categorie} onChange={(e) => maj("categorie", e.target.value)}>
             <option value="">— Choisir —</option>
+            {initiale?.categorie === CAT_TRANSFERT.id && <option value={CAT_TRANSFERT.id}>{CAT_TRANSFERT.label}</option>}
             {f.type === "recette"
               ? cats.map((c) => <option key={c.id} value={c.id}>{c.label}</option>)
               : groupes.map((g) => (
@@ -200,18 +201,104 @@ export function FormulaireEcriture({ ctx, initiale, activiteParDefaut, onFini })
   );
 }
 
+// Transfert entre deux lieux : crée la sortie d'un côté et l'entrée de l'autre.
+export function FormulaireTransfert({ ctx }) {
+  const { par, signaler } = ctx;
+  const [f, setF] = useState({ de: "paypal", vers: "especes", devise: "USD", montant: "", date: aujourdhui(), reference: "", sansPieceMotif: "", note: "" });
+  const [pieces, setPieces] = useState([]);
+  const [occupe, setOccupe] = useState(false);
+  const [erreurs, setErreurs] = useState([]);
+  const maj = (cle, v) => setF((x) => ({ ...x, [cle]: v }));
+  const nom = (id) => LIEUX.find((l) => l.id === id)?.label || id;
+
+  const enregistrer = async () => {
+    const e = [];
+    const m = Math.round(parseFloat(String(f.montant).replace(",", ".")) * 100) / 100;
+    if (f.de === f.vers) e.push("Le lieu de départ et le lieu d'arrivée sont identiques.");
+    if (!(m > 0)) e.push("Indiquez un montant supérieur à zéro.");
+    if (!f.date) e.push("Indiquez la date du transfert.");
+    else if (f.date > aujourdhui()) e.push("La date ne peut pas être dans le futur.");
+    if (pieces.length === 0 && f.sansPieceMotif.trim().length < 5) e.push("Joignez une preuve du transfert, ou expliquez pourquoi il n'y en a pas.");
+    setErreurs(e);
+    if (e.length) return;
+    setOccupe(true);
+    const commun = {
+      activiteId: GENERAL.id, devise: f.devise, montant: m, categorie: CAT_TRANSFERT.id, date: f.date,
+      libelle: `Transfert ${nom(f.de)} → ${nom(f.vers)}`, tiers: "Transfert interne", reference: f.reference.trim(),
+      paiementDirect: null, reconstitue: false, sourceReconstitution: "",
+      sansPieceMotif: pieces.length === 0 ? f.sansPieceMotif.trim() : "", note: f.note.trim(),
+    };
+    try {
+      const sortie = await store.creerEcriture({ ...commun, type: "depense", mode: f.de }, pieces, par);
+      const entree = await store.creerEcriture({ ...commun, type: "recette", mode: f.vers }, pieces, par);
+      signaler(sortie.numero ? `Transfert enregistré : ${sortie.numero} et ${entree.numero}` : "Transfert enregistré dans le téléphone");
+      setF((x) => ({ ...x, montant: "", reference: "", sansPieceMotif: "", note: "" }));
+      setPieces([]);
+    } catch (err) { setErreurs([messageErreur(err)]); }
+    setOccupe(false);
+  };
+
+  return (
+    <div className="formulaire">
+      <p className="discret">Pour déplacer de l'argent déjà enregistré : retrait PayPal remis à la Trésorière, dépôt de la caisse à la banque… Ce n'est ni une recette ni une dépense.</p>
+      <div className="deux">
+        <Champ label="Sort de" requis>
+          <select value={f.de} onChange={(e) => maj("de", e.target.value)}>{LIEUX.map((l) => <option key={l.id} value={l.id}>{l.label}</option>)}</select>
+        </Champ>
+        <Champ label="Entre dans" requis>
+          <select value={f.vers} onChange={(e) => maj("vers", e.target.value)}>{LIEUX.map((l) => <option key={l.id} value={l.id}>{l.label}</option>)}</select>
+        </Champ>
+      </div>
+      <div className="deux">
+        <Champ label="Montant" requis>
+          <input type="text" inputMode="decimal" placeholder="0" value={f.montant} onChange={(e) => maj("montant", e.target.value.replace(/[^0-9.,]/g, ""))} />
+        </Champ>
+        <Champ label="Devise" requis>
+          <div className="segments">
+            {Object.keys(DEVISES).map((d) => <button type="button" key={d} className={f.devise === d ? "actif" : ""} onClick={() => maj("devise", d)}>{DEVISES[d].symbole} {d}</button>)}
+          </div>
+        </Champ>
+      </div>
+      <div className="deux">
+        <Champ label="Date du transfert" requis><input type="date" max={aujourdhui()} value={f.date} onChange={(e) => maj("date", e.target.value)} /></Champ>
+        <Champ label="Référence"><input type="text" maxLength={60} value={f.reference} onChange={(e) => maj("reference", e.target.value)} /></Champ>
+      </div>
+      <div className="bloc">
+        <span className="champ-lbl">Preuve du transfert</span>
+        <SelecteurPieces pieces={pieces} setPieces={setPieces} signaler={signaler} />
+        {pieces.length === 0 && (
+          <Champ label="Pas de preuve : pourquoi ?" requis>
+            <input type="text" maxLength={140} value={f.sansPieceMotif} onChange={(e) => maj("sansPieceMotif", e.target.value)} />
+          </Champ>
+        )}
+      </div>
+      <Champ label="Note (facultatif)"><textarea rows={2} maxLength={300} value={f.note} onChange={(e) => maj("note", e.target.value)} /></Champ>
+      {erreurs.length > 0 && <ul className="encart rejet">{erreurs.map((x) => <li key={x}>{x}</li>)}</ul>}
+      <button className="btn large" disabled={occupe} onClick={enregistrer}>{occupe ? "Enregistrement…" : "Enregistrer le transfert"}</button>
+      <p className="discret centre">Deux écritures sont créées (une sortie, une entrée). Une autre personne devra les valider.</p>
+    </div>
+  );
+}
+
 export default function PageSaisie({ ctx, params }) {
+  const [genre, setGenre] = useState("ecriture");
   if (!peutSaisir(ctx.profil.role)) {
     return <div className="page"><p className="encart">Votre rôle ne permet pas de saisir des écritures.</p></div>;
   }
   return (
     <div className="page">
       <h1>Nouvelle écriture</h1>
-      {ctx.activites.length === 0 && (
+      <div className="onglets">
+        <button className={genre === "ecriture" ? "actif" : ""} onClick={() => setGenre("ecriture")}>Recette ou dépense</button>
+        <button className={genre === "transfert" ? "actif" : ""} onClick={() => setGenre("transfert")}>Transfert entre deux lieux</button>
+      </div>
+      {genre === "ecriture" && ctx.activites.length === 0 && (
         <p className="encart">Aucune activité n'existe encore. La Trésorerie peut en créer une dans l'onglet Activités ; en attendant, utilisez « Fonctionnement général ».</p>
       )}
       <div className="carte">
-        <FormulaireEcriture ctx={ctx} activiteParDefaut={params?.activiteId} />
+        {genre === "ecriture"
+          ? <FormulaireEcriture ctx={ctx} activiteParDefaut={params?.activiteId} />
+          : <FormulaireTransfert ctx={ctx} />}
       </div>
     </div>
   );

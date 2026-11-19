@@ -204,6 +204,13 @@ export const demoStore = {
     diffuser("ecritures");
   },
 
+  async lireCaisses() { return { ...(charger().gardiens || {}) }; },
+
+  async enregistrerCaisses(gardiens) {
+    charger().gardiens = gardiens;
+    sauver();
+  },
+
   async lireTaux() { return { ...TAUX_DEFAUT, ...charger().taux }; },
 
   async enregistrerTaux(taux) {

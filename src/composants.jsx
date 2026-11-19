@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { store } from "./store";
 import {
-  STATUTS, TYPES_PIECE, typePiece, categorie, mode, peutSaisir, peutValider, peutAnnuler,
+  STATUTS, TYPES_PIECE, typePiece, categorie, mode, peutSaisir, peutValider, peutAnnuler, estInterne,
 } from "./lib/constantes";
 import { fmtMontant, fmtDate, fmtDateHeure, nomActivite, preparerPiece, messageErreur, devisesUtilisees } from "./lib/outils";
 
@@ -60,6 +60,7 @@ export function LigneEcriture({ e, activites, onClick }) {
           <Pastille statut={e.statut} />
           {!(e.nbPieces > 0) && <span className="pastille alerte">Sans pièce</span>}
           {e.reconstitue && <span className="pastille neutre">Reconstituée</span>}
+          {estInterne(e) && <span className="pastille neutre">Transfert</span>}
         </span>
       </span>
       <span className={`ligne-montant ${e.type}`}>{e.type === "depense" ? "−" : "+"}{fmtMontant(e.montant, e.devise)}</span>

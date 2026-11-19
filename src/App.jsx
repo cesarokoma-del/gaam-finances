@@ -8,6 +8,7 @@ import PageSaisie from "./pages/Saisie";
 import PageJournal from "./pages/Journal";
 import PageActivites from "./pages/Activites";
 import PageRapports from "./pages/Rapports";
+import PageCaisse from "./pages/Caisse";
 import PageAdmin from "./pages/Admin";
 
 const INACTIVITE = 10 * 60 * 1000; // déconnexion après 10 minutes sans activité
@@ -16,6 +17,7 @@ const ONGLETS = [
   { id: "accueil",   label: "Accueil",   icone: "⌂" },
   { id: "saisie",    label: "Saisir",    icone: "＋", saisie: true },
   { id: "journal",   label: "Journal",   icone: "≣" },
+  { id: "caisse",    label: "Caisse",    icone: "▣" },
   { id: "activites", label: "Activités", icone: "◈" },
   { id: "rapports",  label: "Rapports",  icone: "▤" },
 ];
@@ -144,7 +146,7 @@ export default function App() {
 
   const onglets = ONGLETS.filter((o) => !o.saisie || peutSaisir(profil.role));
   const aValider = ecritures.filter((e) => e.statut === "en_attente" && e.saisiPar?.uid !== profil.uid).length;
-  const Page = { accueil: PageAccueil, saisie: PageSaisie, journal: PageJournal, activites: PageActivites, rapports: PageRapports, reglages: PageAdmin }[nav.page] || PageAccueil;
+  const Page = { accueil: PageAccueil, saisie: PageSaisie, journal: PageJournal, activites: PageActivites, rapports: PageRapports, caisse: PageCaisse, reglages: PageAdmin }[nav.page] || PageAccueil;
 
   return (
     <div className="app">

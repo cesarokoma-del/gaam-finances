@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { ORG, GENERAL, DOMAINES, MOIS, categorie, mode } from "../lib/constantes";
+import { ORG, GENERAL, DOMAINES, MOIS, categorie, mode, estInterne } from "../lib/constantes";
 import {
   fmtMontant, fmtDate, totaux, totalUSD, parCategorie, devisesUtilisees, triAncien, sansPiece,
   telechargerCSV, aujourdhui, nomActivite,
@@ -169,10 +169,11 @@ export default function PageRapports({ ctx, params }) {
   }, [ecritures]);
 
   const a = activiteId === GENERAL.id ? { ...GENERAL } : activites.find((x) => x.id === activiteId);
-  const toutesActivite = useMemo(() => ecritures.filter((e) => e.activiteId === activiteId), [ecritures, activiteId]);
+  // Les transferts internes ne sont ni des recettes ni des dépenses : ils restent hors des rapports.
+  const toutesActivite = useMemo(() => ecritures.filter((e) => e.activiteId === activiteId && !estInterne(e)), [ecritures, activiteId]);
   const toutesPeriode = useMemo(() => {
     const prefixe = mois < 0 ? `${annee}-` : `${annee}-${String(mois + 1).padStart(2, "0")}`;
-    return ecritures.filter((e) => (e.date || "").startsWith(prefixe));
+    return ecritures.filter((e) => (e.date || "").startsWith(prefixe) && !estInterne(e));
   }, [ecritures, annee, mois]);
 
   return (

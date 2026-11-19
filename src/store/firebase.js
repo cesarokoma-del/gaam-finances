@@ -245,6 +245,22 @@ export const firebaseStore = {
     await lot.commit();
   },
 
+  // Qui détient les fonds de chaque lieu (écran Caisse).
+  async lireCaisses() {
+    init();
+    try {
+      const s = await getDoc(doc(db, "parametres", "caisses"));
+      return s.exists() ? s.data().gardiens || {} : {};
+    } catch (e) {
+      return {};
+    }
+  },
+
+  async enregistrerCaisses(gardiens, par) {
+    init();
+    await setDoc(doc(db, "parametres", "caisses"), { gardiens, modifieLe: Date.now(), modifiePar: par });
+  },
+
   async lireTaux() {
     init();
     try {
