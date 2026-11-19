@@ -14,8 +14,8 @@ export const ORG = {
 // ── Rôles ─────────────────────────────────────────────
 // Règle de base : celui qui saisit une écriture ne peut pas la valider.
 export const ROLES = {
-  admin:      { label: "Administrateur Président", court: "Admin",      desc: "Gère les utilisateurs, saisit et valide." },
-  tresorier:  { label: "Trésorière / Trésorier",   court: "Trésorerie", desc: "Saisit, valide, gère les activités et les taux." },
+  admin:      { label: "Administrateur Président", court: "Admin",      desc: "Gère les utilisateurs, fixe le budget et clôture les activités, annule une écriture validée, désigne qui détient les fonds. Saisit et valide." },
+  tresorier:  { label: "Trésorière / Trésorier",   court: "Trésorerie", desc: "Saisit, valide les saisies des autres, crée les activités et tient les taux. Ne peut ni annuler une écriture validée, ni fixer un budget, ni clôturer." },
   saisie:     { label: "Agent de saisie",          court: "Saisie",     desc: "Saisit les recettes et les dépenses avec leurs pièces." },
   validateur: { label: "Validateur (CA)",          court: "Validation", desc: "Valide ou rejette les écritures saisies par d'autres." },
   lecteur:    { label: "Lecteur (CA / Contrôle)",  court: "Lecture",    desc: "Consulte le journal et les rapports." },
@@ -24,7 +24,12 @@ export const ROLES = {
 export const peutSaisir          = (r) => ["admin", "tresorier", "saisie"].includes(r);
 export const peutValider         = (r) => ["admin", "tresorier", "validateur"].includes(r);
 export const peutGererActivites  = (r) => ["admin", "tresorier"].includes(r);
-export const peutAnnuler         = (r) => ["admin", "tresorier"].includes(r);
+// Réservé à l'Administrateur Président : celui qui garde l'argent ne doit pas
+// pouvoir, seul, annuler une écriture validée, changer un budget ou clôturer.
+export const peutAnnuler         = (r) => r === "admin";
+export const peutFixerBudget     = (r) => r === "admin";
+export const peutCloturer        = (r) => r === "admin";
+export const peutDesignerGardien = (r) => r === "admin";
 export const estAdmin            = (r) => r === "admin";
 
 // ── Devises ───────────────────────────────────────────

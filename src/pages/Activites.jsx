@@ -1,11 +1,12 @@
 import { useState } from "react";
 import { store } from "../store";
-import { DOMAINES, peutGererActivites, peutSaisir } from "../lib/constantes";
+import { DOMAINES, peutGererActivites, peutSaisir, peutFixerBudget, peutCloturer } from "../lib/constantes";
 import { fmtDate, fmtMontant, totaux, messageErreur, aujourdhui } from "../lib/outils";
 import { Modal, Champ, Montants } from "../composants";
 
 function FormulaireActivite({ ctx, initiale, onFini }) {
-  const { par, signaler } = ctx;
+  const { par, signaler, profil } = ctx;
+  const budgetModifiable = peutFixerBudget(profil.role);
   const [f, setF] = useState({
     nom: initiale?.nom || "", domaine: initiale?.domaine || "", lieu: initiale?.lieu || "",
     dateDebut: initiale?.dateDebut || aujourdhui(), dateFin: initiale?.dateFin || "",
@@ -26,7 +27,9 @@ function FormulaireActivite({ ctx, initiale, onFini }) {
         ...(initiale?.id ? { id: initiale.id } : {}),
         nom: f.nom.trim(), domaine: f.domaine, lieu: f.lieu.trim(), dateDebut: f.dateDebut,
         dateFin: f.dateFin || f.dateDebut, responsable: f.responsable.trim(),
-        budget: parseFloat(String(f.budget).replace(",", ".")) || 0, description: f.description.trim(),
+        description: f.description.trim(),
+        // Le budget est fixé par l'Administrateur Président seul.
+        ...(budgetModifiable ? { budget: parseFloat(String(f.budget).replace(",", ".")) || 0 } : initiale ? {} : { budget: 0 }),
       }, par);
       signaler(initiale ? "Activité modifiée" : "Activité créée");
       onFini();
@@ -54,8 +57,8 @@ function FormulaireActivite({ ctx, initiale, onFini }) {
       </div>
       <div className="deux">
         <Champ label="Responsable"><input type="text" maxLength={80} value={f.responsable} onChange={(e) => maj("responsable", e.target.value)} /></Champ>
-        <Champ label="Budget prévu (en USD)" aide="Sert de repère dans le rapport.">
-          <input type="text" inputMode="decimal" value={f.budget} onChange={(e) => maj("budget", e.target.value.replace(/[^0-9.,]/g, ""))} />
+        <Champ label="Budget prévu (en USD)" aide={budgetModifiable ? "Sert de repère dans le rapport." : "Fixé par l'Administrateur Président."}>
+          <input type="text" inputMode="decimal" disabled={!budgetModifiable} value={f.budget} onChange={(e) => maj("budget", e.target.value.replace(/[^0-9.,]/g, ""))} />
         </Champ>
       </div>
       <Champ label="Description"><textarea rows={2} maxLength={400} value={f.description} onChange={(e) => maj("description", e.target.value)} /></Champ>
@@ -69,6 +72,7 @@ export default function PageActivites({ ctx }) {
   const { activites, ecritures, profil, par, aller, signaler } = ctx;
   const [edition, setEdition] = useState(null); // {} = nouvelle
   const gestion = peutGererActivites(profil.role);
+  const cloture = peutCloturer(profil.role);
   const liste = [...activites].sort((a, b) => (b.dateDebut || "").localeCompare(a.dateDebut || ""));
 
   const basculer = async (a) => {
@@ -115,7 +119,7 @@ export default function PageActivites({ ctx }) {
               <button className="btn secondaire petit" onClick={() => aller("journal", { activiteId: a.id })}>Écritures</button>
               {peutSaisir(profil.role) && a.statut !== "cloturee" && <button className="btn secondaire petit" onClick={() => aller("saisie", { activiteId: a.id })}>Saisir</button>}
               {gestion && <button className="lien" onClick={() => setEdition(a)}>Modifier</button>}
-              {gestion && <button className="lien" onClick={() => basculer(a)}>{a.statut === "cloturee" ? "Rouvrir" : "Clôturer"}</button>}
+              {cloture && <button className="lien" onClick={() => basculer(a)}>{a.statut === "cloturee" ? "Rouvrir" : "Clôturer"}</button>}
             </div>
           </div>
         );

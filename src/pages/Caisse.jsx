@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { store } from "../store";
-import { ORG, LIEUX, lieuDe, DEVISES, peutGererActivites } from "../lib/constantes";
+import { ORG, LIEUX, lieuDe, DEVISES, peutDesignerGardien } from "../lib/constantes";
 import { fmtMontant, fmtDate, triAncien, nomActivite, telechargerCSV, aujourdhui, messageErreur } from "../lib/outils";
 import { FicheEcriture, Modal, Champ } from "../composants";
 import { FormulaireEcriture } from "./Saisie";
@@ -20,7 +20,7 @@ export default function PageCaisse({ ctx }) {
   const [edition, setEdition] = useState(null);
   const [ouverte, setOuverte] = useState(null);
   const [aCorriger, setACorriger] = useState(null);
-  const gestion = peutGererActivites(profil.role);
+  const gestion = peutDesignerGardien(profil.role);
 
   useEffect(() => { store.lireCaisses().then(setGardiens).catch(() => {}); }, []);
 
