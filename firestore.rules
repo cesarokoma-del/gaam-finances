@@ -6,6 +6,8 @@ rules_version = '2';
 //  1. Seuls les utilisateurs actifs lisent les données.
 //  2. Celui qui saisit une écriture ne peut pas la valider.
 //  3. Rien ne s'efface : une écriture validée s'annule avec un motif.
+//  4. Celui qui garde l'argent ne peut, seul, ni annuler une écriture validée,
+//     ni fixer un budget, ni clôturer une activité, ni désigner le détenteur des fonds.
 // ══════════════════════════════════════════════════════
 service cloud.firestore {
   match /databases/{database}/documents {
@@ -23,9 +25,13 @@ service cloud.firestore {
       // si le premier compte existe déjà. Il ne contient aucun secret.
       allow get: if id == 'installation' || actif();
       allow list: if actif();
+      // « taux » : Administrateur ou Trésorerie. Tout autre réglage (dont
+      // « caisses », qui désigne les détenteurs de fonds) : Administrateur seul.
       allow create: if (id == 'installation' && connecte() && request.resource.data.adminUid == request.auth.uid)
-                    || (id != 'installation' && aRole(['admin', 'tresorier']));
-      allow update: if id != 'installation' && aRole(['admin', 'tresorier']);
+                    || (id == 'taux' && aRole(['admin', 'tresorier']))
+                    || (id != 'installation' && id != 'taux' && aRole(['admin']));
+      allow update: if (id == 'taux' && aRole(['admin', 'tresorier']))
+                    || (id != 'installation' && id != 'taux' && aRole(['admin']));
       allow delete: if false;
     }
 
@@ -48,7 +54,15 @@ service cloud.firestore {
     // ── Activités ─────────────────────────────────────
     match /activites/{id} {
       allow read: if actif();
-      allow create, update: if aRole(['admin', 'tresorier']);
+      // La Trésorerie crée et décrit une activité ; le budget et la clôture
+      // appartiennent à l'Administrateur Président.
+      allow create: if aRole(['admin'])
+                    || ( aRole(['tresorier'])
+                      && request.resource.data.get('budget', 0) == 0
+                      && request.resource.data.statut == 'ouverte' );
+      allow update: if aRole(['admin'])
+                    || ( aRole(['tresorier'])
+                      && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['budget', 'statut']) );
       allow delete: if false;
     }
 
@@ -91,8 +105,8 @@ service cloud.firestore {
           && request.resource.data.statut in ['validee', 'rejetee']
           && request.resource.data.validePar.uid == request.auth.uid
           && seuls(['statut', 'validePar', 'valideLe', 'motifRejet', 'numero']) )
-        // c) annulation d'une écriture validée, avec motif
-        || ( aRole(['admin', 'tresorier'])
+        // c) annulation d'une écriture validée, avec motif — Administrateur seul
+        || ( aRole(['admin'])
           && resource.data.statut == 'validee'
           && request.resource.data.statut == 'annulee'
           && request.resource.data.motifAnnulation is string

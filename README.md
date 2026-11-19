@@ -11,6 +11,9 @@ validée par une seconde personne. Le rapport financier d'une activité sort en 
   tiers, mode de paiement, photo du reçu. Sans pièce, un motif est obligatoire.
 - **Valider** : une écriture reste « en attente » tant qu'une *autre* personne
   habilitée ne l'a pas validée ou rejetée. On ne valide jamais sa propre saisie.
+- **Caisse** : ce que GAAM détient, lieu par lieu (caisse en espèces, mobile money, banque, PayPal), avec le
+  livre de caisse (entrée, sortie, solde après chaque opération) et le nom du détenteur des fonds.
+  Un **transfert** déplace de l'argent d'un lieu à l'autre sans compter comme recette ni dépense.
 - **Journal** : toutes les écritures, avec filtres (à valider, sans pièce, mes rejets) et export CSV.
 - **Rapports** : par activité ou par période — synthèse, recettes et dépenses par
   catégorie, détail, points d'attention, signatures. Impression / PDF et export CSV.
@@ -21,13 +24,16 @@ validée par une seconde personne. Le rapport financier d'une activité sort en 
 
 ## Rôles
 
-| Rôle | Saisir | Valider | Activités, taux | Utilisateurs |
-|---|---|---|---|---|
-| Administrateur Président | oui | oui | oui | oui |
-| Trésorière / Trésorier | oui | oui | oui | non |
-| Agent de saisie | oui | non | non | non |
-| Validateur (CA) | non | oui | non | non |
-| Lecteur (CA / Contrôle) | non | non | non | non |
+| Rôle | Saisir | Valider | Créer une activité, taux | Budget, clôture, annulation, détenteur des fonds | Utilisateurs |
+|---|---|---|---|---|---|
+| Administrateur Président | oui | oui | oui | oui | oui |
+| Trésorière / Trésorier | oui | oui | oui | non | non |
+| Agent de saisie | oui | non | non | non | non |
+| Validateur (CA) | non | oui | non | non | non |
+| Lecteur (CA / Contrôle) | non | non | non | non | non |
+
+La Trésorerie garde l'argent : elle ne peut donc pas, seule, annuler une écriture validée, fixer ou
+modifier un budget, clôturer une activité, ni désigner le détenteur d'une caisse (Statuts, art. 19, 21, 24 et 28).
 
 Il faut au moins deux personnes actives pouvant valider ou saisir, puisque nul ne valide sa propre saisie.
 
@@ -57,7 +63,7 @@ l'un à l'autre pour essayer la validation à deux.
 8. Dans Réglages, ajouter la Trésorière et les autres utilisateurs. Chacun reçoit un
    mot de passe provisoire qu'il change à sa première connexion.
 
-### Mise en ligne (Netlify, comme gaamasbl.org)
+### Mise en ligne (Vercel ou Netlify)
 
 - Pousser ce dossier dans un dépôt GitHub (le fichier `.env` n'y va pas).
 - Netlify > Add new site > Import from GitHub. La commande (`npm run build`) et le
