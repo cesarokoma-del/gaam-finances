@@ -109,7 +109,7 @@ export default function PageCaisse({ ctx }) {
         <div className="soldes">
           <div className="solde"><span className="solde-dev">ENTRÉES</span><span className="solde-val">{fmtMontant(t.entrees, dev)}</span></div>
           <div className="solde sortie"><span className="solde-dev">SORTIES</span><span className="solde-val">{fmtMontant(t.sorties, dev)}</span></div>
-          <div className="solde reste"><span className="solde-dev">DOIT RESTER</span><span className={`solde-val ${t.solde < 0 ? "rouge" : ""}`}>{fmtMontant(t.solde, dev)}</span></div>
+          <div className="solde reste"><span className="solde-dev">SOLDE THÉORIQUE</span><span className={`solde-val ${t.solde < 0 ? "rouge" : ""}`}>{fmtMontant(t.solde, dev)}</span></div>
         </div>
         {t.solde < 0 && <p className="encart rejet">Le solde est négatif. Trois causes possibles : le solde d'ouverture n'a pas été saisi ; de l'argent est arrivé d'un autre lieu (retrait PayPal, par exemple) sans transfert enregistré dans Saisir ; ou une dépense a été payée d'une autre façon que celle indiquée.</p>}
         {attente.length > 0 && (
