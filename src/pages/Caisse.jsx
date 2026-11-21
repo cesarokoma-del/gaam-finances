@@ -12,10 +12,12 @@ const cumul = (liste) => {
   return { entrees, sorties, solde: entrees - sorties };
 };
 
-export default function PageCaisse({ ctx }) {
+export default function PageCaisse({ ctx, params }) {
   const { ecritures, activites, profil, par, signaler } = ctx;
-  const [lieu, setLieu] = useState("especes");
-  const [devise, setDevise] = useState("");
+  const [lieu, setLieu] = useState(LIEUX.some((l) => l.id === params?.lieu) ? params.lieu : "especes");
+  const [devise, setDevise] = useState(params?.devise || "");
+  const { memoriser } = ctx;
+  useEffect(() => { memoriser({ lieu: lieu === "especes" ? "" : lieu, devise }); }, [lieu, devise, memoriser]);
   const [gardiens, setGardiens] = useState({});
   const [edition, setEdition] = useState(null);
   const [ouverte, setOuverte] = useState(null);

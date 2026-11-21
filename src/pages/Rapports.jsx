@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ORG, GENERAL, DOMAINES, MOIS, categorie, mode, estInterne } from "../lib/constantes";
 import {
   fmtMontant, fmtDate, totaux, totalUSD, parCategorie, devisesUtilisees, triAncien, sansPiece,
@@ -159,8 +159,12 @@ export default function PageRapports({ ctx, params }) {
   const maintenant = new Date();
   const [genre, setGenre] = useState(params?.genre || "activite");
   const [activiteId, setActiviteId] = useState(params?.activiteId || "");
-  const [annee, setAnnee] = useState(maintenant.getFullYear());
-  const [mois, setMois] = useState(-1); // -1 = toute l'année
+  const [annee, setAnnee] = useState(parseInt(params?.annee, 10) || maintenant.getFullYear());
+  const [mois, setMois] = useState(params?.mois !== undefined && !isNaN(parseInt(params.mois, 10)) ? parseInt(params.mois, 10) : -1); // -1 = toute l'année
+  const { memoriser } = ctx;
+  useEffect(() => {
+    memoriser(genre === "activite" ? { activiteId } : { genre, annee, mois: mois < 0 ? "" : mois });
+  }, [genre, activiteId, annee, mois, memoriser]);
 
   const annees = useMemo(() => {
     const s = new Set(ecritures.map((e) => parseInt((e.date || "").slice(0, 4), 10)).filter(Boolean));

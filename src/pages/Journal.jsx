@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { GENERAL, STATUTS, categorie, mode, peutValider } from "../lib/constantes";
 import { fmtDate, nomActivite, telechargerCSV, triRecent, sansPiece } from "../lib/outils";
 import { LigneEcriture, FicheEcriture, Modal } from "../composants";
@@ -17,8 +17,12 @@ export const lignesCSV = (ecritures, activites) => [
 export default function PageJournal({ ctx, params }) {
   const { ecritures, activites, profil } = ctx;
   const [filtre, setFiltre] = useState({
-    activiteId: params?.activiteId || "", type: "", statut: params?.statut || "", vue: params?.vue || "", texte: "",
+    activiteId: params?.activiteId || "", type: params?.type || "", statut: params?.statut || "", vue: params?.vue || "", texte: "",
   });
+  const { memoriser } = ctx;
+  useEffect(() => {
+    memoriser({ activiteId: filtre.activiteId, type: filtre.type, statut: filtre.statut, vue: filtre.vue });
+  }, [filtre.activiteId, filtre.type, filtre.statut, filtre.vue, memoriser]);
   const [ouverte, setOuverte] = useState(null);
   const [aCorriger, setACorriger] = useState(null);
   const maj = (c, v) => setFiltre((x) => ({ ...x, [c]: v }));

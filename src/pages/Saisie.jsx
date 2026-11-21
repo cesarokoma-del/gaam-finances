@@ -281,7 +281,8 @@ export function FormulaireTransfert({ ctx }) {
 }
 
 export default function PageSaisie({ ctx, params }) {
-  const [genre, setGenre] = useState("ecriture");
+  const [genre, setGenreBrut] = useState(params?.genre === "transfert" ? "transfert" : "ecriture");
+  const setGenre = (g) => { setGenreBrut(g); ctx.memoriser({ activiteId: params?.activiteId, genre: g === "transfert" ? g : "" }); };
   if (!peutSaisir(ctx.profil.role)) {
     return <div className="page"><p className="encart">Votre rôle ne permet pas de saisir des écritures.</p></div>;
   }

@@ -11,6 +11,24 @@ import PageRapports from "./pages/Rapports";
 import PageCaisse from "./pages/Caisse";
 import PageAdmin from "./pages/Admin";
 
+// ── Navigation par l'adresse ──────────────────────────
+// La page et ses réglages sont écrits après le « # » : actualiser garde la page,
+// le bouton Retour revient à l'écran précédent, et un lien ouvre un écran précis.
+const PAGES = ["accueil", "saisie", "journal", "caisse", "activites", "rapports", "reglages"];
+const lireAdresse = () => {
+  const brut = window.location.hash.replace(/^#/, "");
+  const [page, requete = ""] = brut.split("?");
+  const params = {};
+  new URLSearchParams(requete).forEach((v, k) => { params[k] = v; });
+  return { page: PAGES.includes(page) ? page : "accueil", params: Object.keys(params).length ? params : null };
+};
+const ecrireAdresse = (page, params) => {
+  const q = new URLSearchParams();
+  Object.entries(params || {}).forEach(([k, v]) => { if (v !== undefined && v !== null && v !== "") q.set(k, String(v)); });
+  const requete = q.toString();
+  return "#" + page + (requete ? "?" + requete : "");
+};
+
 const INACTIVITE = 10 * 60 * 1000; // déconnexion après 10 minutes sans activité
 
 const ONGLETS = [
@@ -27,7 +45,7 @@ export default function App() {
   const [session, setSession] = useState(undefined);    // undefined = en cours, null = déconnecté
   const [profil, setProfil] = useState(null);
   const [avis, setAvis] = useState("");
-  const [nav, setNav] = useState({ page: "accueil", params: null, cle: 0 });
+  const [nav, setNav] = useState(() => ({ ...lireAdresse(), cle: 0 }));
   const [utilisateurs, setUtilisateurs] = useState([]);
   const [activites, setActivites] = useState([]);
   const [ecritures, setEcritures] = useState([]);
@@ -51,8 +69,22 @@ export default function App() {
     minuterieToast.current = setTimeout(() => setToast(""), 3200);
   }, []);
   const aller = useCallback((page, params = null) => {
-    setNav((n) => ({ page, params, cle: n.cle + 1 }));
+    const cible = ecrireAdresse(page, params);
+    // Même adresse (on retouche l'onglet courant) : on recharge simplement l'écran.
+    if (cible === window.location.hash) setNav((n) => ({ ...lireAdresse(), cle: n.cle + 1 }));
+    else window.location.hash = cible; // déclenche « hashchange » ci-dessous
     window.scrollTo(0, 0);
+  }, []);
+  // Un écran enregistre ses réglages (activité choisie, filtres…) dans l'adresse,
+  // sans créer d'étape supplémentaire pour le bouton Retour.
+  const memoriser = useCallback((params) => {
+    const cible = ecrireAdresse(lireAdresse().page, params);
+    if (cible !== window.location.hash) window.history.replaceState(null, "", cible);
+  }, []);
+  useEffect(() => {
+    const suivre = () => { setNav((n) => ({ ...lireAdresse(), cle: n.cle + 1 })); window.scrollTo(0, 0); };
+    window.addEventListener("hashchange", suivre);
+    return () => window.removeEventListener("hashchange", suivre);
   }, []);
 
   // ── Session ─────────────────────────────────────────
@@ -73,7 +105,6 @@ export default function App() {
         if (p.statut !== "actif") { setAvis("Ce compte est suspendu."); store.deconnexion(); return; }
         setAvis("");
         setProfil(p);
-        setNav({ page: "accueil", params: null, cle: 0 });
       })
       .catch((e) => { if (vivant) { setAvis(messageErreur(e)); store.deconnexion(); } });
     return () => { vivant = false; };
@@ -125,8 +156,8 @@ export default function App() {
 
   const ctx = useMemo(() => profil && ({
     profil, par: { uid: profil.uid, nom: profil.nom },
-    utilisateurs, activites, ecritures, taux, signaler, aller, rechargerTaux,
-  }), [profil, utilisateurs, activites, ecritures, taux, signaler, aller, rechargerTaux]);
+    utilisateurs, activites, ecritures, taux, signaler, aller, memoriser, rechargerTaux,
+  }), [profil, utilisateurs, activites, ecritures, taux, signaler, aller, memoriser, rechargerTaux]);
 
   // ── Écrans d'entrée ─────────────────────────────────
   if (installe === null || session === undefined) return <div className="chargement"><div className="rond" /></div>;
@@ -161,7 +192,7 @@ export default function App() {
                 <div className="menu-liste">
                   <button onClick={() => { setMenu(false); aller("reglages"); }}>Réglages</button>
                   <button onClick={() => { setMenu(false); setChangerMdp(true); }}>Changer mon mot de passe</button>
-                  <button onClick={() => { setMenu(false); store.deconnexion(); }}>Se déconnecter</button>
+                  <button onClick={() => { setMenu(false); window.history.replaceState(null, "", window.location.pathname); store.deconnexion(); }}>Se déconnecter</button>
                 </div>
               )}
             </div>
