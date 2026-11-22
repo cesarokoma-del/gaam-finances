@@ -37,11 +37,28 @@ export const genMotDePasse = () => {
 };
 
 // ── Calculs ───────────────────────────────────────────
-// Équivalent en dollars au taux indicatif (pour comparer au budget seulement).
-export const enUSD = (montant, devise, taux = TAUX_DEFAUT) => {
+// ── Taux de change ────────────────────────────────────
+// Chaque écriture en FC ou en EUR garde le taux du jour de l'opération (champ « taux ») :
+//   CDF → nombre de FC pour 1 USD ;  EUR → nombre d'USD pour 1 EUR ;  USD → aucun.
+// Son équivalent en dollars ne bouge donc plus quand on change le taux des Réglages.
+// Les écritures plus anciennes, sans taux, prennent celui des Réglages.
+export const tauxParDefaut = (devise, taux) => {
   const t = { ...TAUX_DEFAUT, ...(taux || {}) };
-  return ((montant || 0) * (t[devise] || t.USD)) / t.USD;
+  if (devise === "CDF") return t.USD;
+  if (devise === "EUR") return Math.round((t.EUR / t.USD) * 10000) / 10000;
+  return null;
 };
+export const tauxDe = (e, taux) => (e.devise === "USD" || !e.devise ? null : e.taux > 0 ? e.taux : tauxParDefaut(e.devise, taux));
+export const convertirUSD = (montant, devise, t) => {
+  if (devise === "CDF") return (montant || 0) / t;
+  if (devise === "EUR") return (montant || 0) * t;
+  return montant || 0;
+};
+export const equivalentUSD = (e, taux) => convertirUSD(e.montant, e.devise || "USD", tauxDe(e, taux));
+export const libelleTaux = (devise, t) => (devise === "CDF" ? `1 USD = ${Number(t).toLocaleString("fr-FR")} FC`
+  : devise === "EUR" ? `1 EUR = ${Number(t).toLocaleString("fr-FR", { maximumFractionDigits: 4 })} USD` : "");
+// Ancienne forme, gardée pour compatibilité.
+export const enUSD = (montant, devise, taux) => convertirUSD(montant, devise, tauxParDefaut(devise, taux));
 
 // Totaux par devise d'une liste d'écritures (déjà filtrée).
 export const totaux = (ecritures) => {
@@ -59,19 +76,20 @@ export const totaux = (ecritures) => {
 export const totalUSD = (ecritures, taux) => {
   let recettes = 0, depenses = 0;
   ecritures.forEach((e) => {
-    const v = enUSD(e.montant, e.devise, taux);
+    const v = equivalentUSD(e, taux);
     if (e.type === "recette") recettes += v; else depenses += v;
   });
   return { recettes, depenses, solde: recettes - depenses };
 };
 
 // Regroupe par catégorie → { catId: { label, USD: x, CDF: y… } }
-export const parCategorie = (ecritures) => {
+export const parCategorie = (ecritures, taux) => {
   const m = {};
   ecritures.forEach((e) => {
     const id = e.categorie || "—";
-    if (!m[id]) m[id] = { id, label: categorie(id).label, groupe: categorie(id).g || "", montants: {} };
+    if (!m[id]) m[id] = { id, label: categorie(id).label, groupe: categorie(id).g || "", montants: {}, usd: 0 };
     m[id].montants[e.devise] = (m[id].montants[e.devise] || 0) + (e.montant || 0);
+    m[id].usd += equivalentUSD(e, taux);
   });
   return Object.values(m).sort((a, b) => a.label.localeCompare(b.label, "fr"));
 };

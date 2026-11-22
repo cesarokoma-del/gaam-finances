@@ -1,21 +1,23 @@
 import { useEffect, useMemo, useState } from "react";
 import { GENERAL, STATUTS, categorie, mode, peutValider } from "../lib/constantes";
-import { fmtDate, nomActivite, telechargerCSV, triRecent, sansPiece } from "../lib/outils";
+import { fmtDate, nomActivite, telechargerCSV, triRecent, sansPiece, tauxDe, equivalentUSD } from "../lib/outils";
 import { LigneEcriture, FicheEcriture, Modal } from "../composants";
 import { FormulaireEcriture } from "./Saisie";
 
-export const lignesCSV = (ecritures, activites) => [
-  ["N°", "Date", "Type", "Activité", "Catégorie", "Libellé", "Tiers", "Mode", "Référence", "Montant", "Devise", "Statut", "Pièces", "Reconstituée", "Saisi par", "Validé par"],
+const virgule = (n, d = 2) => String(Math.round(n * 10 ** d) / 10 ** d).replace(".", ",");
+export const lignesCSV = (ecritures, activites, taux) => [
+  ["N°", "Date", "Type", "Activité", "Catégorie", "Libellé", "Tiers", "Mode", "Référence", "Montant", "Devise", "Taux", "Équivalent USD", "Statut", "Pièces", "Reconstituée", "Saisi par", "Validé par"],
   ...ecritures.map((e) => [
     e.numero || "", fmtDate(e.date), e.type === "recette" ? "Recette" : "Dépense", nomActivite(activites, e.activiteId),
     categorie(e.categorie).label, e.libelle || "", e.tiers || "", mode(e.mode).label, e.reference || "",
-    String(e.montant).replace(".", ","), e.devise, STATUTS[e.statut]?.label || e.statut, e.nbPieces || 0,
+    String(e.montant).replace(".", ","), e.devise,
+    e.devise === "USD" ? "" : virgule(tauxDe(e, taux), 4), virgule(equivalentUSD(e, taux)), STATUTS[e.statut]?.label || e.statut, e.nbPieces || 0,
     e.reconstitue ? "Oui" : "Non", e.saisiPar?.nom || "", e.validePar?.nom || "",
   ]),
 ];
 
 export default function PageJournal({ ctx, params }) {
-  const { ecritures, activites, profil } = ctx;
+  const { ecritures, activites, profil, taux } = ctx;
   const [filtre, setFiltre] = useState({
     activiteId: params?.activiteId || "", type: params?.type || "", statut: params?.statut || "", vue: params?.vue || "", texte: "",
   });
@@ -55,7 +57,7 @@ export default function PageJournal({ ctx, params }) {
       <div className="titre-ligne">
         <h1>Journal</h1>
         <button className="btn secondaire petit" disabled={!liste.length}
-          onClick={() => telechargerCSV("gaam-journal.csv", lignesCSV(liste, activites))}>Exporter (CSV)</button>
+          onClick={() => telechargerCSV("gaam-journal.csv", lignesCSV(liste, activites, taux))}>Exporter (CSV)</button>
       </div>
 
       <div className="onglets">

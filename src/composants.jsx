@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import { store } from "./store";
 import {
-  STATUTS, TYPES_PIECE, typePiece, categorie, mode, peutSaisir, peutValider, peutAnnuler, estInterne,
+  STATUTS, TYPES_PIECE, typePiece, categorie, mode, peutSaisir, peutValider, peutAnnuler, estInterne, CAT_CHANGE,
 } from "./lib/constantes";
-import { fmtMontant, fmtDate, fmtDateHeure, nomActivite, preparerPiece, messageErreur, devisesUtilisees } from "./lib/outils";
+import { fmtMontant, fmtDate, fmtDateHeure, nomActivite, preparerPiece, messageErreur, devisesUtilisees, libelleTaux, tauxDe, equivalentUSD } from "./lib/outils";
 
 export function Modal({ titre, onClose, children, large }) {
   useEffect(() => {
@@ -60,7 +60,7 @@ export function LigneEcriture({ e, activites, onClick }) {
           <Pastille statut={e.statut} />
           {!(e.nbPieces > 0) && <span className="pastille alerte">Sans pièce</span>}
           {e.reconstitue && <span className="pastille neutre">Reconstituée</span>}
-          {estInterne(e) && <span className="pastille neutre">Transfert</span>}
+          {estInterne(e) && <span className="pastille neutre">{e.categorie === CAT_CHANGE.id ? "Change" : "Transfert"}</span>}
         </span>
       </span>
       <span className={`ligne-montant ${e.type}`}>{e.type === "depense" ? "−" : "+"}{fmtMontant(e.montant, e.devise)}</span>
@@ -161,6 +161,7 @@ export function FicheEcriture({ id, ctx, onClose, onCorriger }) {
         <dt>Catégorie</dt><dd>{categorie(e.categorie).label}</dd>
         <dt>Date de l'opération</dt><dd>{fmtDate(e.date)}</dd>
         <dt>{e.type === "recette" ? "Reçu de" : "Payé à"}</dt><dd>{e.tiers || "—"}</dd>
+        {e.devise !== "USD" && <><dt>Taux appliqué</dt><dd>{libelleTaux(e.devise, tauxDe(e, ctx.taux))}{e.taux > 0 ? "" : " (taux des Réglages : aucun taux enregistré avec l'écriture)"} — équivalent {fmtMontant(equivalentUSD(e, ctx.taux), "USD")}</dd></>}
         <dt>Mode</dt><dd>{mode(e.mode).label}{e.reference ? ` · réf. ${e.reference}` : ""}</dd>
         {e.type === "depense" && <><dt>Paiement direct au fournisseur</dt><dd>{e.paiementDirect === true ? "Oui" : e.paiementDirect === false ? "Non" : "—"}</dd></>}
         <dt>Saisie par</dt><dd>{e.saisiPar?.nom} — {fmtDateHeure(e.saisiLe)}</dd>
@@ -237,20 +238,25 @@ export function FicheEcriture({ id, ctx, onClose, onCorriger }) {
 }
 
 // Tableau « catégorie × devise » utilisé dans les rapports
+// Montants par catégorie : en équivalent USD d'abord, puis dans chaque devise d'origine.
 export function TableauCategories({ lignes, ecritures, titreTotal }) {
   const ds = devisesUtilisees(ecritures);
   const total = {};
   lignes.forEach((l) => ds.forEach((d) => { total[d] = (total[d] || 0) + (l.montants[d] || 0); }));
+  const totalUsd = lignes.reduce((n, l) => n + (l.usd || 0), 0);
+  const avecUsd = !(ds.length === 1 && ds[0] === "USD");
   if (!lignes.length) return <p className="discret">Aucune écriture validée.</p>;
   return (
-    <table className="tab">
-      <thead><tr><th>Catégorie</th>{ds.map((d) => <th key={d} className="num">{d}</th>)}</tr></thead>
-      <tbody>
-        {lignes.map((l) => (
-          <tr key={l.id}><td>{l.label}</td>{ds.map((d) => <td key={d} className="num">{l.montants[d] ? fmtMontant(l.montants[d], d) : "—"}</td>)}</tr>
-        ))}
-      </tbody>
-      <tfoot><tr><th>{titreTotal}</th>{ds.map((d) => <th key={d} className="num">{fmtMontant(total[d] || 0, d)}</th>)}</tr></tfoot>
-    </table>
+    <div>
+      <table className="tab">
+        <thead><tr><th>Catégorie</th>{avecUsd && <th className="num">Équiv. USD</th>}{ds.map((d) => <th key={d} className="num">{d}</th>)}</tr></thead>
+        <tbody>
+          {lignes.map((l) => (
+            <tr key={l.id}><td>{l.label}</td>{avecUsd && <td className="num fort">{fmtMontant(l.usd, "USD")}</td>}{ds.map((d) => <td key={d} className="num">{l.montants[d] ? fmtMontant(l.montants[d], d) : "—"}</td>)}</tr>
+          ))}
+        </tbody>
+        <tfoot><tr><th>{titreTotal}</th>{avecUsd && <th className="num">{fmtMontant(totalUsd, "USD")}</th>}{ds.map((d) => <th key={d} className="num">{fmtMontant(total[d] || 0, d)}</th>)}</tr></tfoot>
+      </table>
+    </div>
   );
 }

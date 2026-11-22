@@ -94,9 +94,11 @@ export const CAT_DEPENSES = [
 // Mouvement entre deux lieux de détention (PayPal → caisse, caisse → banque…).
 // Ce n'est ni une recette ni une dépense : il compte dans la Caisse, pas dans les rapports.
 export const CAT_TRANSFERT = { id: "x_transfert", label: "Transfert interne" };
-export const estInterne = (e) => e.categorie === CAT_TRANSFERT.id;
+export const CAT_CHANGE = { id: "x_change", label: "Change de devises" };
+// Transferts et changes déplacent de l'argent déjà détenu : ni recette ni dépense.
+export const estInterne = (e) => e.categorie === CAT_TRANSFERT.id || e.categorie === CAT_CHANGE.id;
 
-const TOUTES = [...CAT_RECETTES, ...CAT_DEPENSES, CAT_TRANSFERT];
+const TOUTES = [...CAT_RECETTES, ...CAT_DEPENSES, CAT_TRANSFERT, CAT_CHANGE];
 export const categorie = (id) => TOUTES.find((c) => c.id === id) || { id, label: id || "—" };
 
 // ── Modes de paiement ─────────────────────────────────

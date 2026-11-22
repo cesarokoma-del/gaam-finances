@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { ORG, GENERAL, DOMAINES, MOIS, categorie, mode, estInterne } from "../lib/constantes";
 import {
-  fmtMontant, fmtDate, totaux, totalUSD, parCategorie, devisesUtilisees, triAncien, sansPiece,
+  fmtMontant, fmtDate, totaux, totalUSD, parCategorie, devisesUtilisees, triAncien, sansPiece, equivalentUSD,
   telechargerCSV, aujourdhui, nomActivite,
 } from "../lib/outils";
 import { TableauCategories } from "../composants";
@@ -23,13 +23,28 @@ function EnTete({ titre, sousTitre }) {
   );
 }
 
+// Synthèse : d'abord en dollars (ce que lit un partenaire), puis dans chaque devise
+// d'origine (ce que la Trésorière peut compter dans sa caisse).
 function Synthese({ validees, taux, budget }) {
   const t = totaux(validees);
   const ds = devisesUtilisees(validees);
   const u = totalUSD(validees, taux);
   if (!ds.length) return <p className="discret">Aucune écriture validée.</p>;
+  const convertis = validees.filter((e) => e.devise !== "USD");
+  const sansTaux = convertis.filter((e) => !(e.taux > 0));
+  const seulementUSD = ds.length === 1 && ds[0] === "USD";
   return (
     <>
+      <div className="soldes">
+        <div className="solde"><span className="solde-dev">RECETTES</span><span className="solde-val">{fmtMontant(u.recettes, "USD")}</span></div>
+        <div className="solde sortie"><span className="solde-dev">DÉPENSES</span><span className="solde-val">{fmtMontant(u.depenses, "USD")}</span></div>
+        <div className="solde reste"><span className="solde-dev">SOLDE</span><span className="solde-val">{fmtMontant(u.solde, "USD")}</span></div>
+      </div>
+      {budget > 0 && (
+        <p className="note">Budget prévu : {fmtMontant(budget, "USD")} — dépensé : {fmtMontant(u.depenses, "USD")} ({Math.round((u.depenses / budget) * 100)} %) — écart : {fmtMontant(budget - u.depenses, "USD")}.</p>
+      )}
+      {!seulementUSD && <>
+      <h4>Détail par devise d'origine</h4>
       <table className="tab">
         <thead><tr><th>Devise</th><th className="num">Recettes</th><th className="num">Dépenses</th><th className="num">Solde</th></tr></thead>
         <tbody>
@@ -37,19 +52,19 @@ function Synthese({ validees, taux, budget }) {
             <tr key={d}><td>{d}</td><td className="num">{fmtMontant(t[d].recettes, d)}</td><td className="num">{fmtMontant(t[d].depenses, d)}</td><td className="num fort">{fmtMontant(t[d].solde, d)}</td></tr>
           ))}
         </tbody>
-        <tfoot>
-          <tr><th>Équivalent en USD (indicatif)</th><th className="num">{fmtMontant(u.recettes, "USD")}</th><th className="num">{fmtMontant(u.depenses, "USD")}</th><th className="num">{fmtMontant(u.solde, "USD")}</th></tr>
-        </tfoot>
       </table>
-      {budget > 0 && (
-        <p className="note">Budget prévu : {fmtMontant(budget, "USD")} — dépensé : {fmtMontant(u.depenses, "USD")} ({Math.round((u.depenses / budget) * 100)} %) — écart : {fmtMontant(budget - u.depenses, "USD")}.</p>
-      )}
-      <p className="note">Taux indicatifs : 1 USD = {Number(taux.USD).toLocaleString("fr-FR")} FC ; 1 EUR = {Number(taux.EUR).toLocaleString("fr-FR")} FC. Les montants sont tenus dans leur devise d'origine ; l'équivalent en dollars sert seulement de repère.</p>
+      <p className="note">
+        Montants en dollars : les sommes reçues ou payées en francs congolais ou en euros sont converties au taux du jour de chaque opération, enregistré avec l'écriture (voir le détail en section 4).
+        {sansTaux.length > 0 && ` ${sansTaux.length} écriture(s) saisie(s) avant l'enregistrement des taux sont converties au taux des Réglages : 1 USD = ${Number(taux.USD).toLocaleString("fr-FR")} FC ; 1 EUR = ${Number(taux.EUR).toLocaleString("fr-FR")} FC.`}
+        {" "}L'argent lui-même reste tenu dans sa devise d'origine, comme dans le tableau ci-dessus.
+      </p>
+      </>}
     </>
   );
 }
 
-function JournalDetaille({ liste, avecActivite, activites }) {
+function JournalDetaille({ liste, avecActivite, activites, taux }) {
+  const equiv = (e) => e.devise === "USD" ? null : <><br /><span className="discret">≈ {fmtMontant(equivalentUSD(e, taux), "USD")}</span></>;
   if (!liste.length) return <p className="discret">Aucune écriture.</p>;
   return (
     <table className="tab serre">
@@ -64,8 +79,8 @@ function JournalDetaille({ liste, avecActivite, activites }) {
             <td>{e.libelle}<br /><span className="discret">{categorie(e.categorie).label}{avecActivite ? ` · ${nomActivite(activites, e.activiteId)}` : ""}{e.reconstitue ? " · reconstituée" : ""}</span></td>
             <td>{e.tiers || "—"}</td>
             <td>{mode(e.mode).label}{e.reference ? <><br /><span className="discret">{e.reference}</span></> : null}</td>
-            <td className="num nowrap">{e.type === "recette" ? fmtMontant(e.montant, e.devise) : ""}</td>
-            <td className="num nowrap">{e.type === "depense" ? fmtMontant(e.montant, e.devise) : ""}</td>
+            <td className="num nowrap">{e.type === "recette" ? <>{fmtMontant(e.montant, e.devise)}{equiv(e)}</> : ""}</td>
+            <td className="num nowrap">{e.type === "depense" ? <>{fmtMontant(e.montant, e.devise)}{equiv(e)}</> : ""}</td>
             <td className={sansPiece(e) ? "rouge" : ""}>{sansPiece(e) ? "Aucune" : e.nbPieces}</td>
             <td>{e.saisiPar?.nom || "—"}<br /><span className="discret">{e.validePar?.nom || "—"}</span></td>
           </tr>
@@ -121,7 +136,7 @@ function Rapport({ ctx, titre, sousTitre, infos, toutes, budget, avecActivite, n
     <>
       <div className="actions gauche sans-impression">
         <button className="btn" onClick={() => window.print()}>Imprimer / PDF</button>
-        <button className="btn secondaire" disabled={!toutes.length} onClick={() => telechargerCSV(nomCSV, lignesCSV([...toutes].sort(triAncien), activites))}>Exporter (CSV)</button>
+        <button className="btn secondaire" disabled={!toutes.length} onClick={() => telechargerCSV(nomCSV, lignesCSV([...toutes].sort(triAncien), activites, taux))}>Exporter (CSV)</button>
       </div>
       <article className="rapport">
         <EnTete titre={titre} sousTitre={sousTitre} />
@@ -134,13 +149,13 @@ function Rapport({ ctx, titre, sousTitre, infos, toutes, budget, avecActivite, n
         <Synthese validees={validees} taux={taux} budget={budget} />
 
         <h3>2. Recettes par catégorie</h3>
-        <TableauCategories lignes={parCategorie(validees.filter((e) => e.type === "recette"))} ecritures={validees.filter((e) => e.type === "recette")} titreTotal="Total des recettes" />
+        <TableauCategories lignes={parCategorie(validees.filter((e) => e.type === "recette"), taux)} ecritures={validees.filter((e) => e.type === "recette")} titreTotal="Total des recettes" />
 
         <h3>3. Dépenses par catégorie</h3>
-        <TableauCategories lignes={parCategorie(validees.filter((e) => e.type === "depense"))} ecritures={validees.filter((e) => e.type === "depense")} titreTotal="Total des dépenses" />
+        <TableauCategories lignes={parCategorie(validees.filter((e) => e.type === "depense"), taux)} ecritures={validees.filter((e) => e.type === "depense")} titreTotal="Total des dépenses" />
 
         <h3>4. Détail des écritures validées</h3>
-        <JournalDetaille liste={validees} avecActivite={avecActivite} activites={activites} />
+        <JournalDetaille liste={validees} avecActivite={avecActivite} activites={activites} taux={taux} />
 
         <h3>5. Points d'attention</h3>
         <PointsAttention toutes={toutes} />
