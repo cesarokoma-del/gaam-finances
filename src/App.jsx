@@ -50,6 +50,7 @@ export default function App() {
   const [activites, setActivites] = useState([]);
   const [ecritures, setEcritures] = useState([]);
   const [taux, setTaux] = useState({ ...TAUX_DEFAUT });
+  const [tauxPret, setTauxPret] = useState(false); // les écrans attendent le vrai taux avant de s'afficher
   const [toast, setToast] = useState("");
   const [changerMdp, setChangerMdp] = useState(false);
   const [enLigne, setEnLigne] = useState(typeof navigator === "undefined" ? true : navigator.onLine !== false);
@@ -120,7 +121,10 @@ export default function App() {
       store.ecouter("activites", setActivites, erreur),
       store.ecouter("ecritures", setEcritures, erreur),
     ];
-    rechargerTaux();
+    setTauxPret(false);
+    rechargerTaux()
+      .catch((e) => signaler("Taux de change non lus (" + messageErreur(e) + ") — taux par défaut utilisés."))
+      .finally(() => setTauxPret(true));
     return () => arrets.forEach((f) => f && f());
   }, [profil?.uid]);
 
@@ -211,7 +215,7 @@ export default function App() {
       )}
       {!enLigne && <div className="bandeau hors-ligne sans-impression">Hors connexion — vos saisies partiront au retour du réseau.</div>}
 
-      <main><Page key={nav.cle} ctx={ctx} params={nav.params} /></main>
+      <main>{tauxPret ? <Page key={nav.cle} ctx={ctx} params={nav.params} /> : <div className="chargement"><div className="rond" /></div>}</main>
 
       <nav className="onglets-bas sans-impression">
         {onglets.map((o) => (

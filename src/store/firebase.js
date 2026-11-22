@@ -263,12 +263,9 @@ export const firebaseStore = {
 
   async lireTaux() {
     init();
-    try {
-      const s = await getDoc(doc(db, "parametres", "taux"));
-      return s.exists() ? { ...TAUX_DEFAUT, ...s.data().taux } : { ...TAUX_DEFAUT };
-    } catch (e) {
-      return { ...TAUX_DEFAUT };
-    }
+    // Une erreur de lecture remonte (au lieu de proposer en silence le taux par défaut).
+    const s = await getDoc(doc(db, "parametres", "taux"));
+    return s.exists() ? { ...TAUX_DEFAUT, ...s.data().taux } : { ...TAUX_DEFAUT };
   },
 
   async enregistrerTaux(taux, par) {

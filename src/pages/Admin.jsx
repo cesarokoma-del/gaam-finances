@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { store, DEMO } from "../store";
 import { ROLES, estAdmin, peutGererActivites } from "../lib/constantes";
 import { genMotDePasse, messageErreur } from "../lib/outils";
@@ -60,6 +60,8 @@ function ReglageTaux({ ctx }) {
   const { taux, par, signaler, rechargerTaux } = ctx;
   const [usd, setUsd] = useState(String(taux.USD));
   const [eur, setEur] = useState(String(taux.EUR));
+  // Si le taux change ailleurs (autre appareil, rechargement), les champs suivent.
+  useEffect(() => { setUsd(String(taux.USD)); setEur(String(taux.EUR)); }, [taux.USD, taux.EUR]);
   const enregistrer = async () => {
     const u = parseFloat(usd), e = parseFloat(eur);
     if (!(u > 0) || !(e > 0)) return signaler("Taux invalides.");
@@ -69,7 +71,7 @@ function ReglageTaux({ ctx }) {
   return (
     <div className="carte">
       <h2>Taux indicatifs</h2>
-      <p className="discret">Ils servent seulement à donner un équivalent en dollars dans les rapports. Aucune écriture n'est convertie.</p>
+      <p className="discret">Proposés à la saisie d'une somme en francs ou en euros : chaque écriture garde ensuite son propre taux, celui du jour de l'opération. Ils s'appliquent aussi aux écritures plus anciennes, saisies sans taux.</p>
       <div className="deux">
         <Champ label="1 USD = … FC"><input type="number" min="1" value={usd} onChange={(e) => setUsd(e.target.value)} /></Champ>
         <Champ label="1 EUR = … FC"><input type="number" min="1" value={eur} onChange={(e) => setEur(e.target.value)} /></Champ>
